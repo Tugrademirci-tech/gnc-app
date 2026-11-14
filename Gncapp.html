@@ -20,6 +20,7 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
 .msg{padding:6px 10px;margin:4px 0;border-radius:10px;background:var(--bg);max-width:85%}.msg.me{margin-left:auto;background:var(--ac);color:#fff}
 .plus{color:#1e8e3e}.minus{color:#c0392b}.box{max-height:45vh;overflow:auto}
 #arrow{width:0;height:0;margin:20px auto;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:90px solid var(--ac);transition:transform .2s}
+.new::after{content:" ●";color:#c0392b}
 .logo{border-radius:50%;object-fit:cover;display:block}
 [hidden]{display:none!important}
 </style></head><body>
@@ -50,7 +51,7 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
 
  <section id="t-gebet" hidden>
   <div class="card"><div class="mu" id="loc"></div><div class="big" id="next">…</div><div class="mu" id="cd"></div><div id="times"></div>
-   <button id="nb" class="s">🔔 Benachrichtigungen aktivieren</button><div class="mu">Benachrichtigungen kommen nur, solange die Seite geöffnet ist.</div></div>
+   <button id="nb" class="s">🔔 Benachrichtigungen aktivieren (Chat, Privat, Gebet)</button><div class="mu">Benachrichtigungen kommen nur, solange die App geöffnet oder im Hintergrund aktiv ist.</div></div>
   <div class="card" style="text-align:center"><b>Qibla</b><div id="qd" class="mu"></div><div id="arrow"></div><button id="cp" class="s">🧭 Kompass starten</button></div></section>
 
  <section id="t-admin" hidden><div class="card"><b>Neuen Nutzer anlegen</b>
@@ -74,7 +75,18 @@ const mail=u=>u.trim().toLowerCase().replace(/\s+/g,"")+"@gnc.de";
 const eur=n=>n.toLocaleString("de-DE",{style:"currency",currency:"EUR"});
 const tm=t=>t?.toDate?t.toDate().toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"…";
 const el=(tag,txt,cls)=>{const e=document.createElement(tag);e.textContent=txt;if(cls)e.className=cls;return e};
-let me=null,users=[],unsubs=[],dmAll=[];
+let me=null,users=[],unsubs=[],dmAll=[],first={},cur="kasse",swr=null;
+if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").then(r=>swr=r).catch(()=>{});
+async function notify(title,body){
+ if(!("Notification" in window)||Notification.permission!=="granted")return;
+ try{if(swr){await swr.showNotification(title,{body});return}}catch(e){}
+ try{new Notification(title,{body})}catch(e){}}
+function newMsg(k,sn){if(!first[k]){first[k]=1;return}
+ sn.docChanges().forEach(c=>{if(c.type!=="added")return;const x=c.doc.data();if((x.uid||x.from)===me.uid)return;
+  const tab=k==="dm"?"dm":"chat";if(!document.hidden&&cur===tab)return;
+  const who=k==="dm"?(users.find(u=>u.uid===x.from)?.name||"Privat"):x.by;
+  notify((k==="dm"?"🔒 ":"💬 ")+who,x.text);
+  document.querySelector('nav [data-t="'+tab+'"]').classList.add("new")})}
 
 $("lf").onsubmit=async e=>{e.preventDefault();$("le").textContent="";try{await signInWithEmailAndPassword(auth,mail($("lu").value),$("lp").value)}catch(x){$("le").textContent="Benutzername oder Passwort falsch."}};
 $("out").onclick=()=>signOut(auth);
@@ -90,11 +102,11 @@ onAuthStateChanged(auth,async u=>{
 });
 
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
- document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+ document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));cur=b.dataset.t;b.classList.remove("new");
  document.querySelectorAll("main section").forEach(s=>s.hidden=s.id!=="t-"+b.dataset.t);
 });
 
-function start(){
+function start(){first={};
  // Kasse
  unsubs.push(onSnapshot(query(collection(db,"purchases"),orderBy("ts","desc"),limit(300)),sn=>{
   let ein=0,aus=0;const box=$("kl");box.replaceChildren();
@@ -109,7 +121,7 @@ function start(){
   const box=$("vl");box.replaceChildren();sn.forEach(d=>{const x=d.data(),r=el("div","","li");
    r.append(el("span",(x.type==="ein"?"✅ ":"🚪 ")+x.name),el("span",tm(x.ts),"mu"));box.append(r)})}));
  // Chat
- unsubs.push(onSnapshot(query(collection(db,"chat"),orderBy("ts","desc"),limit(100)),sn=>{
+ unsubs.push(onSnapshot(query(collection(db,"chat"),orderBy("ts","desc"),limit(100)),sn=>{newMsg("chat",sn);
   const box=$("cl");box.replaceChildren();[...sn.docs].reverse().forEach(d=>{const x=d.data();
    const m=el("div","","msg"+(x.uid===me.uid?" me":""));m.append(el("div",x.by+" · "+tm(x.ts),"mu"),el("div",x.text));box.append(m)});box.scrollTop=box.scrollHeight}));
  // Nutzer + privat
@@ -118,7 +130,7 @@ function start(){
   const cur=$("dmu").value;$("dmu").replaceChildren(el("option","Person wählen…"));$("dmu").firstChild.value="";
   users.filter(u=>u.uid!==me.uid).forEach(u=>{const o=el("option",u.name);o.value=u.uid;$("dmu").append(o)});$("dmu").value=cur;
   $("dh").textContent=users.length<2?"Es gibt noch keine anderen Nutzer. Lege sie im Admin-Tab an.":"";renderUsers();renderDM();renderAdm()}));
- unsubs.push(onSnapshot(query(collection(db,"dm"),where("participants","array-contains",me.uid)),sn=>{dmAll=sn.docs.map(d=>d.data());renderDM()}));
+ unsubs.push(onSnapshot(query(collection(db,"dm"),where("participants","array-contains",me.uid)),sn=>{newMsg("dm",sn);dmAll=sn.docs.map(d=>d.data());renderDM()}));
  if(me.role==="admin")unsubs.push(onSnapshot(collection(db,"dm"),sn=>{adm=sn.docs.map(d=>d.data());renderAdm()}));
  prayer();
 }
@@ -173,7 +185,7 @@ function drawTimes(){if(!T)return;const box=$("times");box.replaceChildren();
  Object.keys(NAMES).forEach(k=>{const r=el("div","","li");r.append(el("span",NAMES[k]),el("b",T[k].slice(0,5)));box.append(r)})}
 setInterval(()=>{if(!T)return;const now=new Date();let nx=null;
  for(const k in NAMES){const t=at(T[k]);if(t>now){nx=[k,t];break}
-  if(Math.abs(now-t)<60000&&!done[k]){done[k]=1;if(Notification.permission==="granted")new Notification("🕌 Gebetszeit: "+NAMES[k],{body:T[k].slice(0,5)+" Uhr"})}}
+  if(Math.abs(now-t)<60000&&!done[k]){done[k]=1;notify("🕌 Gebetszeit: "+NAMES[k],T[k].slice(0,5)+" Uhr")}}
  if(!nx){nx=["Fajr",new Date(at(T.Fajr).getTime()+864e5)]}
  const m=Math.round((nx[1]-now)/6e4);$("next").textContent=NAMES[nx[0]]+" · "+nx[1].toTimeString().slice(0,5);
  $("cd").textContent="in "+Math.floor(m/60)+" Std "+m%60+" Min"},5000);
