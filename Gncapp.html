@@ -49,6 +49,7 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
  <section id="t-da" hidden><div class="card"><div class="row"><button id="vin">✅ Ich bin da</button><button id="vout" class="s">🚪 Ich gehe</button></div></div><div class="card" id="vl"></div></section>
 
  <section id="t-chat" hidden>
+ <div id="chs" class="minus"></div>
  <div id="chl" class="card"></div>
  <div id="chv" hidden><div class="row" style="align-items:center"><button class="s" id="chb" style="flex:0 0 56px">←</button><b id="chn" style="flex:1 1 auto"></b><button class="d" id="chx" hidden style="flex:0 0 auto">🗑 Leeren</button></div>
   <div class="card box" id="cl"></div>
@@ -68,12 +69,13 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged,createUserWithEmailAndPassword}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import{getFirestore,collection,addDoc,onSnapshot,query,orderBy,limit,where,doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,collection,addDoc,onSnapshot as onSnap,query,orderBy,limit,where,doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ====== HIER DEINE FIREBASE-DATEN EINTRAGEN (siehe Anleitung) ====== */
 const cfg={apiKey:"AIzaSyA6Kd-5QJXxF81JbcUTrhHeYNEc7hNKv4Y",authDomain:"gnc-app-4fe92.firebaseapp.com",projectId:"gnc-app-4fe92",appId:"1:421586664920:web:9deee49ea2c8dab17d06ad"};
 /* =================================================================== */
 
+function onSnapshot(q,cb){return onSnap(q,cb,e=>{const s=document.getElementById("chs");if(s)s.textContent="Fehler beim Laden ("+(e.code||e.message)+") – bitte Firestore-Regeln prüfen."})}
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i);
 const mail=u=>u.trim().toLowerCase().replace(/\s+/g,"")+"@gnc.de";
@@ -157,9 +159,10 @@ function renderChats(){if(!me)return;const L=$("chl"),V=$("chv");L.hidden=!!open
  const row=(id,m)=>{const r=el("div","","li"),l=el("div",""),x=m[m.length-1];r.style.cursor="pointer";
   l.append(el("b",nm(id)),el("div",x?x.text:"Noch keine Nachrichten","mu"));r.append(l);
   if(unread[id])r.append(el("span",String(unread[id]),"badge"));r.onclick=()=>openC(id);L.append(r)};
- if(!openChat){L.replaceChildren();row("all",chatAll);users.filter(u=>u.uid!==me.uid).forEach(u=>row(u.uid,dmFor(u.uid)));
+ if(!openChat){L.replaceChildren();L.append(el("div","Gruppe","mu"));row("all",chatAll);L.append(el("div","Privat","mu"));
+  const ou=users.filter(u=>u.uid!==me.uid);ou.forEach(u=>row(u.uid,dmFor(u.uid)));if(!ou.length)L.append(el("div","Noch keine anderen Nutzer. Lege sie im Tab Admin an.","mu"));
   if(isAdm()){const ks=[...new Set(adm.filter(x=>!x.participants.includes(me.uid)).map(pk))];
-   if(ks.length){L.append(el("div","🔒 Private Chats anderer (nur Admin)","mu"));ks.forEach(k=>row("pair:"+k,pairMsgs(k)))}}return}
+   L.append(el("div","🔒 Private Chats anderer (nur Admin)","mu"));ks.forEach(k=>row("pair:"+k,pairMsgs(k)));if(!ks.length)L.append(el("div","Noch keine privaten Chats zwischen anderen.","mu"))}return}
  const pair=openChat.startsWith("pair:"),col=openChat==="all"?"chat":"dm";
  $("chn").textContent=nm(openChat);$("cir").hidden=pair;$("chx").hidden=!isAdm();
  const box=$("cl");box.replaceChildren();
