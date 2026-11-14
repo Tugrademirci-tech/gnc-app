@@ -129,7 +129,7 @@ $("vin").onclick=()=>visit("ein");$("vout").onclick=()=>visit("aus");
 const errT=e=>e.code==="permission-denied"?"Keine Berechtigung – bitte Firestore-Regeln prüfen.":"Fehler: "+(e.code||e.message);
 $("cb").onclick=async()=>{const t=$("ci").value.trim();if(!t)return;$("ce").textContent="";
  try{await addDoc(collection(db,"chat"),{text:t,by:me.name,uid:me.uid,ts:serverTimestamp()});$("ci").value=""}catch(e){$("ce").textContent=errT(e)}};
-$("ci").onkeydown=e=>e.key==="Enter"&&$("cb").click();
+$("ci").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("cb").click()}});
 let adm=[];
 function renderAdm(){const box=$("al");if(!me||me.role!=="admin")return;box.replaceChildren();
  const nm=u=>users.find(x=>x.uid===u)?.name||"(gelöscht)",g={};
@@ -143,8 +143,11 @@ function renderDM(){const p=$("dmu").value,box=$("dl");box.replaceChildren();if(
 $("dmu").onchange=renderDM;
 $("db").onclick=async()=>{const t=$("di").value.trim(),p=$("dmu").value;$("de").textContent="";if(!p){$("de").textContent="Bitte zuerst eine Person wählen.";return}if(!t)return;
  try{await addDoc(collection(db,"dm"),{text:t,from:me.uid,to:p,participants:[me.uid,p],ts:serverTimestamp()});$("di").value=""}catch(e){$("de").textContent=errT(e)}};
-$("di").onkeydown=e=>e.key==="Enter"&&$("db").click();
+$("di").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();$("db").click()}});
 
+// Navigation ausblenden, solange getippt wird (iOS-Tastatur)
+document.addEventListener("focusin",e=>{if(/INPUT|SELECT/.test(e.target.tagName))$("nav").style.display="none"});
+document.addEventListener("focusout",()=>setTimeout(()=>{if(!/INPUT|SELECT/.test(document.activeElement.tagName))$("nav").style.display=""},200));
 // Admin
 function renderUsers(){const box=$("ul");box.replaceChildren();users.forEach(u=>{const r=el("div","","li");r.append(el("span",u.name+(u.role==="admin"?" (Admin)":"")));
  if(me.role==="admin"&&u.uid!==me.uid){const b=el("button","Entfernen","d");b.onclick=()=>confirm(u.name+" entfernen?")&&deleteDoc(doc(db,"users",u.uid));r.append(b)}box.append(r)})}
