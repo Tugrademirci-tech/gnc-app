@@ -64,7 +64,7 @@ const cfg={apiKey:"AIzaSyA6Kd-5QJXxF81JbcUTrhHeYNEc7hNKv4Y",authDomain:"gnc-app-
 
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i);
-const mail=u=>u.trim().toLowerCase().replace(/\s+/g,"")+"@jugend.app";
+const mail=u=>u.trim().toLowerCase().replace(/\s+/g,"")+"@gnc.de";
 const eur=n=>n.toLocaleString("de-DE",{style:"currency",currency:"EUR"});
 const tm=t=>t?.toDate?t.toDate().toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"…";
 const el=(tag,txt,cls)=>{const e=document.createElement(tag);e.textContent=txt;if(cls)e.className=cls;return e};
