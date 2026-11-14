@@ -43,16 +43,16 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
   <div class="mu" id="sub"></div></div>
   <div class="card"><input id="ki" placeholder="Was? (z.B. Cola-Kasten)"><div class="row"><input id="ka" type="number" step="0.01" placeholder="Betrag €"><select id="kt"><option value="aus">Ausgabe (gekauft)</option><option value="ein">Einnahme (verkauft)</option></select></div>
   <button id="kb">Eintragen</button></div><div class="card" id="kl"></div></div>
- <div id="k-ord" hidden><div class="card"><input id="oi" placeholder="Bestellung (z.B. 2x Döner, 1x Cola)"><input id="ow" placeholder="Name / Tisch (optional)"><button id="ob">Bestellen</button><p id="oe" class="minus"></p></div>
+ <div id="k-ord" hidden><div class="card"><input id="oi" placeholder="Bestellung"><input id="ow" placeholder="Name"><button id="ob">Bestellen</button><p id="oe" class="minus"></p></div>
  <div class="card"><b>Offen</b><div id="ol"></div></div><div class="card"><b>Erledigt (zuletzt)</b><div id="od"></div></div></div></section>
 
  <section id="t-da" hidden><div class="card"><div class="row"><button id="vin">✅ Ich bin da</button><button id="vout" class="s">🚪 Ich gehe</button></div></div><div class="card" id="vl"></div></section>
 
  <section id="t-chat" hidden>
  <div id="chl" class="card"></div>
- <div id="chv" hidden><div class="row" style="align-items:center"><button class="s" id="chb" style="flex:0 0 56px">←</button><b id="chn" style="flex:1 1 auto"></b></div>
+ <div id="chv" hidden><div class="row" style="align-items:center"><button class="s" id="chb" style="flex:0 0 56px">←</button><b id="chn" style="flex:1 1 auto"></b><button class="d" id="chx" hidden style="flex:0 0 auto">🗑 Leeren</button></div>
   <div class="card box" id="cl"></div>
-  <div class="row"><input id="ci" placeholder="Nachricht…" enterkeyhint="send"><button id="cb" style="flex:0 0 90px">Senden</button></div><p id="ce" class="minus"></p>
+  <div class="row" id="cir"><input id="ci" placeholder="Nachricht…" enterkeyhint="send"><button id="cb" style="flex:0 0 90px">Senden</button></div><p id="ce" class="minus"></p>
   <div class="mu">Private Chats kann der Admin einsehen.</div></div></section>
  <section id="t-gebet" hidden>
   <div class="card"><div class="mu" id="loc"></div><div class="big" id="next">…</div><div class="mu" id="cd"></div><div id="times"></div>
@@ -61,7 +61,7 @@ nav button{background:none;color:var(--mu);border-radius:0;margin:0;font-size:12
 
  <section id="t-admin" hidden><div class="card"><b>Neuen Nutzer anlegen</b>
   <input id="nu" placeholder="Benutzername" autocapitalize="none"><input id="np" placeholder="Start-Passwort (min. 6 Zeichen)"><button id="nbn">Anlegen</button><p id="ne" class="mu"></p></div>
-  <div class="card" id="ul"></div><div class="card"><b>Private Chats (nur Admin)</b><div id="al" style="margin-top:8px"></div></div></section>
+  <div class="card" id="ul"></div></section>
 </main>
 <nav id="nav" hidden><button data-t="kasse" class="on">💶<br>Kasse</button><button data-t="da">🏠<br>Anwesenheit</button><button data-t="chat">💬<br>Chats</button><button data-t="gebet">🕌<br>Gebet</button><button data-t="admin" id="adm" hidden>⚙️<br>Admin</button></nav>
 
@@ -125,7 +125,7 @@ function start(){first={};openChat=null;unread={};chatAll=[];dmAll=[];
   const box=$("vl");box.replaceChildren();sn.forEach(d=>{const x=d.data(),r=el("div","","li");
    r.append(el("span",(x.type==="ein"?"✅ ":"🚪 ")+x.name),el("span",tm(x.ts),"mu"));box.append(r)})}));
  // Chat
- unsubs.push(onSnapshot(query(collection(db,"chat"),orderBy("ts","desc"),limit(100)),sn=>{newMsg("chat",sn);chatAll=sn.docs.map(d=>d.data()).reverse();renderChats()}));
+ unsubs.push(onSnapshot(query(collection(db,"chat"),orderBy("ts","desc"),limit(100)),sn=>{newMsg("chat",sn);chatAll=sn.docs.map(d=>({id:d.id,...d.data()})).reverse();renderChats()}));
  // Bestellungen
  unsubs.push(onSnapshot(query(collection(db,"orders"),orderBy("ts","desc"),limit(100)),sn=>{
   if(first.o)sn.docChanges().forEach(c=>{if(c.type==="added"&&c.doc.data().uid!==me.uid)notify("🍽 Neue Bestellung",c.doc.data().text)});first.o=1;
@@ -136,9 +136,9 @@ function start(){first={};openChat=null;unread={};chatAll=[];dmAll=[];
   if(!open.length)op.textContent="Keine offenen Bestellungen 🎉";
   all.filter(x=>x.done).slice(0,15).forEach(x=>{const r=el("div","","li");r.append(el("span","✔ "+x.text+(x.who?" ("+x.who+")":"")),el("span",tm(x.ts),"mu"));dn.append(r)})}));
  // Nutzer + Chats
- unsubs.push(onSnapshot(collection(db,"users"),sn=>{users=sn.docs.map(d=>({uid:d.id,...d.data()}));renderUsers();renderChats();renderAdm()}));
- unsubs.push(onSnapshot(query(collection(db,"dm"),where("participants","array-contains",me.uid)),sn=>{newMsg("dm",sn);dmAll=sn.docs.map(d=>d.data());renderChats()}));
- if(me.role==="admin")unsubs.push(onSnapshot(collection(db,"dm"),sn=>{adm=sn.docs.map(d=>d.data());renderAdm()}));
+ unsubs.push(onSnapshot(collection(db,"users"),sn=>{users=sn.docs.map(d=>({uid:d.id,...d.data()}));renderUsers();renderChats()}));
+ unsubs.push(onSnapshot(query(collection(db,"dm"),where("participants","array-contains",me.uid)),sn=>{newMsg("dm",sn);dmAll=sn.docs.map(d=>({id:d.id,...d.data()}));renderChats()}));
+ if(me.role==="admin")unsubs.push(onSnapshot(collection(db,"dm"),sn=>{adm=sn.docs.map(d=>({id:d.id,...d.data()}));renderChats()}));
  nstat();prayer();
 }
 $("kb").onclick=async()=>{const a=parseFloat($("ka").value);if(!$("ki").value.trim()||!(a>0))return;
@@ -148,16 +148,27 @@ $("vin").onclick=()=>visit("ein");$("vout").onclick=()=>visit("aus");
 let chatAll=[],openChat=null,unread={};
 const errT=e=>e.code==="permission-denied"?"Keine Berechtigung – bitte Firestore-Regeln prüfen.":"Fehler: "+(e.code||e.message);
 const dmFor=p=>dmAll.filter(x=>x.participants.includes(p)).sort((a,b)=>(a.ts?.seconds||9e9)-(b.ts?.seconds||9e9));
+const nm0=id=>users.find(u=>u.uid===id)?.name||"?",isAdm=()=>me.role==="admin";
+const pk=x=>[...x.participants].sort().join("|");
+const pairMsgs=k=>adm.filter(x=>pk(x)===k).sort((a,b)=>(a.ts?.seconds||9e9)-(b.ts?.seconds||9e9));
+const curMsgs=()=>openChat==="all"?chatAll:openChat.startsWith("pair:")?pairMsgs(openChat.slice(5)):dmFor(openChat);
 function renderChats(){if(!me)return;const L=$("chl"),V=$("chv");L.hidden=!!openChat;V.hidden=!openChat;
- const nm=id=>id==="all"?"👥 Alle":(users.find(u=>u.uid===id)?.name||"?");
- if(!openChat){L.replaceChildren();
-  [{id:"all",m:chatAll},...users.filter(u=>u.uid!==me.uid).map(u=>({id:u.uid,m:dmFor(u.uid)}))].forEach(i=>{
-   const r=el("div","","li"),l=el("div",""),x=i.m[i.m.length-1];r.style.cursor="pointer";
-   l.append(el("b",nm(i.id)),el("div",x?x.text:"Noch keine Nachrichten","mu"));r.append(l);
-   if(unread[i.id])r.append(el("span",String(unread[i.id]),"badge"));r.onclick=()=>openC(i.id);L.append(r)});return}
- $("chn").textContent=nm(openChat);const box=$("cl");box.replaceChildren();
- (openChat==="all"?chatAll:dmFor(openChat)).forEach(x=>{const mine=(x.uid||x.from)===me.uid,m=el("div","","msg"+(mine?" me":""));
-  if(openChat==="all"&&!mine)m.append(el("div",x.by,"mu"));m.append(el("div",x.text),el("div",tm(x.ts),"mu"));box.append(m)});box.scrollTop=box.scrollHeight}
+ const nm=id=>id==="all"?"👥 Alle":id.startsWith("pair:")?id.slice(5).split("|").map(nm0).join(" ↔ "):nm0(id);
+ const row=(id,m)=>{const r=el("div","","li"),l=el("div",""),x=m[m.length-1];r.style.cursor="pointer";
+  l.append(el("b",nm(id)),el("div",x?x.text:"Noch keine Nachrichten","mu"));r.append(l);
+  if(unread[id])r.append(el("span",String(unread[id]),"badge"));r.onclick=()=>openC(id);L.append(r)};
+ if(!openChat){L.replaceChildren();row("all",chatAll);users.filter(u=>u.uid!==me.uid).forEach(u=>row(u.uid,dmFor(u.uid)));
+  if(isAdm()){const ks=[...new Set(adm.filter(x=>!x.participants.includes(me.uid)).map(pk))];
+   if(ks.length){L.append(el("div","🔒 Private Chats anderer (nur Admin)","mu"));ks.forEach(k=>row("pair:"+k,pairMsgs(k)))}}return}
+ const pair=openChat.startsWith("pair:"),col=openChat==="all"?"chat":"dm";
+ $("chn").textContent=nm(openChat);$("cir").hidden=pair;$("chx").hidden=!isAdm();
+ const box=$("cl");box.replaceChildren();
+ curMsgs().forEach(x=>{const mine=(x.uid||x.from)===me.uid,m=el("div","","msg"+(mine?" me":""));
+  if(openChat==="all"&&!mine)m.append(el("div",x.by,"mu"));if(pair)m.append(el("div",nm0(x.from),"mu"));
+  m.append(el("div",x.text),el("div",tm(x.ts),"mu"));
+  if(isAdm()){const b=el("button","✕","d");b.onclick=()=>deleteDoc(doc(db,col,x.id));m.append(b)}box.append(m)});box.scrollTop=box.scrollHeight}
+$("chx").onclick=async()=>{if(!openChat||!confirm("Alle Nachrichten in diesem Chat löschen?"))return;
+ const col=openChat==="all"?"chat":"dm";try{await Promise.all(curMsgs().map(x=>deleteDoc(doc(db,col,x.id))))}catch(e){$("ce").textContent=errT(e)}};
 function openC(id){openChat=id;unread[id]=0;renderChats();updNav()}
 function updNav(){document.querySelector('nav [data-t="chat"]').classList.toggle("new",Object.values(unread).some(n=>n>0))}
 $("chb").onclick=()=>{openChat=null;renderChats()};
@@ -166,17 +177,11 @@ async function send(){const t=$("ci").value.trim();if(!t||!openChat)return;$("ce
 $("cb").onclick=send;$("ci").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();send()}});
 const sub=w=>{$("k-cash").hidden=w!=="c";$("k-ord").hidden=w!=="o";$("sbk").className=w==="c"?"":"s";$("sbo").className=w==="o"?"":"s"};
 $("sbk").onclick=()=>sub("c");$("sbo").onclick=()=>sub("o");
-$("ob").onclick=async()=>{const t=$("oi").value.trim();if(!t)return;$("oe").textContent="";
- try{await addDoc(collection(db,"orders"),{text:t,who:$("ow").value.trim(),by:me.name,uid:me.uid,done:false,ts:serverTimestamp()});$("oi").value=$("ow").value=""}catch(e){$("oe").textContent=errT(e)}};
+$("ob").onclick=async()=>{const t=$("oi").value.trim(),w=$("ow").value.trim();if(!t||!w){$("oe").textContent="Bitte Bestellung und Name eintragen.";return}$("oe").textContent="";
+ try{await addDoc(collection(db,"orders"),{text:t,who:w,by:me.name,uid:me.uid,done:false,ts:serverTimestamp()});$("oi").value=$("ow").value=""}catch(e){$("oe").textContent=errT(e)}};
 function nstat(){$("ns").textContent=!("Notification" in window)?"Hier nicht möglich. iPhone: App über „Zum Home-Bildschirm“ öffnen.":"Status: "+({granted:"erlaubt ✅",denied:"blockiert ❌ (in den Geräte-Einstellungen freigeben)",default:"noch nicht erlaubt"})[Notification.permission]}
 $("nt").onclick=()=>{notify("🔔 Test","Benachrichtigungen funktionieren.");nstat()};
 let adm=[];
-function renderAdm(){const box=$("al");if(!me||me.role!=="admin")return;box.replaceChildren();
- const nm=u=>users.find(x=>x.uid===u)?.name||"(gelöscht)",g={};
- adm.forEach(x=>{(g[[...x.participants].sort().join("|")]??=[]).push(x)});
- Object.values(g).forEach(a=>{a.sort((x,y)=>(x.ts?.seconds||9e9)-(y.ts?.seconds||9e9));box.append(el("b",nm(a[0].participants[0])+" ↔ "+nm(a[0].participants[1])));
-  a.forEach(x=>{const r=el("div","","li");r.append(el("span",nm(x.from)+": "+x.text),el("span",tm(x.ts),"mu"));box.append(r)})});
- if(!adm.length)box.textContent="Noch keine privaten Nachrichten."}
 
 // Navigation ausblenden, solange getippt wird (iOS-Tastatur)
 document.addEventListener("focusin",e=>{if(/INPUT|SELECT/.test(e.target.tagName))$("nav").style.display="none"});
