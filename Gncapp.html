@@ -75,14 +75,14 @@ import{getFirestore,collection,addDoc,onSnapshot as onSnap,query,orderBy,limit,w
 const cfg={apiKey:"AIzaSyA6Kd-5QJXxF81JbcUTrhHeYNEc7hNKv4Y",authDomain:"gnc-app-4fe92.firebaseapp.com",projectId:"gnc-app-4fe92",appId:"1:421586664920:web:9deee49ea2c8dab17d06ad"};
 /* =================================================================== */
 
-function onSnapshot(q,cb){return onSnap(q,cb,e=>{const s=document.getElementById("chs");if(s)s.textContent="Fehler beim Laden ("+(e.code||e.message)+") – bitte Firestore-Regeln prüfen."})}
+function onSnapshot(q,cb){return onSnap(q,cb,e=>{const s=document.getElementById("chs");if(s)s.textContent="Fehler beim Laden: "+(e.code||"")+" "+String(e.message||"").slice(0,90)})}
 const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
 const $=i=>document.getElementById(i);
 const mail=u=>u.trim().toLowerCase().replace(/\s+/g,"")+"@gnc.de";
 const eur=n=>n.toLocaleString("de-DE",{style:"currency",currency:"EUR"});
 const tm=t=>t?.toDate?t.toDate().toLocaleString("de-DE",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):"…";
 const el=(tag,txt,cls)=>{const e=document.createElement(tag);e.textContent=txt;if(cls)e.className=cls;return e};
-let me=null,users=[],unsubs=[],dmAll=[],first={},cur="kasse",swr=null,ag="m";
+let me=null,users=[],unsubs=[],dmAll=[],first={},cur="kasse",swr=null,ag="m",allUsers=[];
 const G=()=>me.role==="admin"?ag:(me.grp||"m");
 if("serviceWorker" in navigator)navigator.serviceWorker.register("sw.js").then(r=>swr=r).catch(()=>{});
 async function notify(title,body){
@@ -115,7 +115,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
 });
 
 function restart(){unsubs.forEach(f=>f());unsubs=[];start()}
-function start(){first={};openChat=null;unread={};chatAll=[];dmAll=[];adm=[];users=[];
+function start(){first={};openChat=null;unread={};chatAll=[];dmAll=[];adm=[];users=[];allUsers=[];
  // Kasse
  unsubs.push(onSnapshot(query(collection(db,"purchases"),where("grp","==",G())),sn=>{
   let ein=0,aus=0;const box=$("kl");box.replaceChildren();
@@ -144,6 +144,7 @@ function start(){first={};openChat=null;unread={};chatAll=[];dmAll=[];adm=[];use
  unsubs.push(onSnapshot(query(collection(db,"users"),where("grp","==",G())),sn=>{users=sn.docs.map(d=>({uid:d.id,...d.data()}));renderUsers();renderChats()}));
  unsubs.push(onSnapshot(query(collection(db,"dm"),where("participants","array-contains",me.uid)),sn=>{newMsg("dm",sn);dmAll=sn.docs.map(d=>({id:d.id,...d.data()}));renderChats()}));
  if(isAdm())unsubs.push(onSnapshot(query(collection(db,"dm"),where("grp","==",G())),sn=>{adm=sn.docs.map(d=>({id:d.id,...d.data()}));renderChats()}));
+ if(me.role==="admin")unsubs.push(onSnapshot(collection(db,"users"),sn=>{allUsers=sn.docs.map(d=>({uid:d.id,...d.data()}));renderUsers()}));
  nstat();prayer();
 }
 $("kb").onclick=async()=>{const a=parseFloat($("ka").value);if(!$("ki").value.trim()||!(a>0))return;
@@ -193,11 +194,17 @@ let adm=[];
 document.addEventListener("focusin",e=>{if(/INPUT|SELECT/.test(e.target.tagName))$("nav").style.display="none"});
 document.addEventListener("focusout",()=>setTimeout(()=>{if(!/INPUT|SELECT/.test(document.activeElement.tagName))$("nav").style.display=""},200));
 // Admin
-function renderUsers(){const box=$("ul");box.replaceChildren();users.forEach(u=>{const r=el("div","","li");
- r.append(el("span",u.name+(u.role==="admin"?" (Admin)":u.role==="lead"?" (Leitung)":"")));
- if(u.uid!==me.uid&&u.role!=="admin"&&(me.role==="admin"||(me.role==="lead"&&u.role==="user"))){const w=el("div","");
-  if(me.role==="admin"){const c=el("button",u.role==="lead"?"Leitung entfernen":"Zur Leitung","s");c.style.width="auto";c.onclick=()=>updateDoc(doc(db,"users",u.uid),{role:u.role==="lead"?"user":"lead"});w.append(c)}
-  const b=el("button","Entfernen","d");b.onclick=()=>confirm(u.name+" entfernen?")&&deleteDoc(doc(db,"users",u.uid));w.append(b);r.append(w)}box.append(r)})}
+function renderUsers(){const box=$("ul");box.replaceChildren();const ad=me.role==="admin";
+ const list=(ad?allUsers:users).slice().sort((a,b)=>(a.grp||"").localeCompare(b.grp||"")||a.name.localeCompare(b.name));
+ if(!list.length)box.textContent="Keine Nutzer gefunden.";
+ list.forEach(u=>{const r=el("div","","li"),gl=u.grp==="f"?"Frauen":u.grp==="m"?"Jungen":"ohne Gruppe";
+  r.append(el("span",u.name+(u.role==="admin"?" (Admin)":u.role==="lead"?" (Leitung)":"")+(ad?" · "+gl:"")));
+  if(u.uid!==me.uid&&u.role!=="admin"&&(ad||(me.role==="lead"&&u.role==="user"))){const w=el("div","");w.style.display="flex";w.style.gap="4px";
+   const btn=(txt,cls,fn)=>{const c=el("button",txt,cls);c.style.width="auto";c.style.padding="4px 8px";c.onclick=fn;w.append(c)};
+   if(ad){if(u.grp!=="m")btn("→ Jungen","s",()=>updateDoc(doc(db,"users",u.uid),{grp:"m"}));
+    if(u.grp!=="f")btn("→ Frauen","s",()=>updateDoc(doc(db,"users",u.uid),{grp:"f"}));
+    btn(u.role==="lead"?"Leitung ✕":"Leitung","s",()=>updateDoc(doc(db,"users",u.uid),{role:u.role==="lead"?"user":"lead"}))}
+   btn("Entfernen","d",()=>confirm(u.name+" entfernen?")&&deleteDoc(doc(db,"users",u.uid)));r.append(w)}box.append(r)})}
 $("nbn").onclick=async()=>{const n=$("nu").value.trim(),p=$("np").value;$("ne").textContent="";if(!n||p.length<6){$("ne").textContent="Name und mind. 6 Zeichen Passwort nötig.";return}
  try{const sec=initializeApp(cfg,"sec"+Date.now()),sa=getAuth(sec);
   const c=await createUserWithEmailAndPassword(sa,mail(n),p);
